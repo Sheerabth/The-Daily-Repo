@@ -1,0 +1,46 @@
+name: Daily edition
+
+on:
+  schedule:
+    - cron: "0 6 * * *"  # 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write  # commit seen.json and the new edition back
+  pages: write
+  id-token: write
+
+concurrency:
+  group: daily-edition
+  cancel-in-progress: false
+
+jobs:
+  edition:
+    runs-on: ubuntu-24.04  # ships Python 3.12; build.py needs only the stdlib
+    timeout-minutes: 20
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: python3 test_build.py
+
+      - run: python3 build.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Commit edition
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add seen.json docs
+          git diff --cached --quiet || git commit -m "Edition $(date -u +%F)"
+          git push
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+      - id: deploy
+        uses: actions/deploy-pages@v4
