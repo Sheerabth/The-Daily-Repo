@@ -1,9 +1,15 @@
 name: Daily edition
 
 on:
-  schedule:
-    - cron: "0 6 * * *"  # 06:00 UTC
-  workflow_dispatch:
+  workflow_dispatch:  # manual only for now
+    inputs:
+      date:
+        description: "Day to build, YYYY-MM-DD (empty = today, UTC)"
+        required: false
+      regenerate:
+        description: "Rebuild the day even if it already exists"
+        type: boolean
+        default: false
 
 permissions:
   contents: write  # commit seen.json and the new edition back
@@ -26,9 +32,11 @@ jobs:
 
       - run: python3 test_build.py
 
-      - run: python3 build.py
+      - run: python3 build.py ${DATE:+--date "$DATE"} ${REGENERATE:+--regenerate}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DATE: ${{ inputs.date }}  # via env, never interpolated into the script
+          REGENERATE: ${{ inputs.regenerate && '1' || '' }}
 
       - name: Commit edition
         run: |
